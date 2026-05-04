@@ -1,0 +1,1422 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>骑行安全智能监测云平台 · 美团单车</title>
+<!-- ECharts CDN -->
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<style>
+/* ===== CSS Variables ===== */
+:root {
+  --bg-deep: #0A0E17;
+  --bg-card: #141A2E;
+  --bg-card-hover: #1A2240;
+  --border-card: rgba(255, 195, 0, 0.12);
+  --border-glow: rgba(255, 195, 0, 0.35);
+  --yellow: #FFC300;
+  --red: #FF4D4F;
+  --green: #00B96B;
+  --orange: #FF8C00;
+  --blue: #1890FF;
+  --text-primary: #E8E8E8;
+  --text-secondary: #8C8C8C;
+  --text-dim: #5A5A5A;
+  --font-mono: "DIN Alternate", "Roboto Mono", "SF Mono", "Menlo", monospace;
+  --font-sans: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+/* ===== Reset & Base ===== */
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  background: var(--bg-deep);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+}
+
+/* ===== 全局网格背景 ===== */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,195,0,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,195,0,0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ===== 主布局 ===== */
+#app {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-rows: 56px 108px 1fr;
+  height: 100vh;
+  padding: 0;
+  gap: 0;
+}
+
+/* ===== 顶部标题栏 ===== */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 28px;
+  background: linear-gradient(90deg, #0D1220 0%, #141A2E 50%, #0D1220 100%);
+  border-bottom: 1px solid var(--border-card);
+  position: relative;
+}
+.header::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--yellow), transparent);
+  opacity: 0.5;
+}
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.header-logo {
+  width: 32px;
+  height: 32px;
+  background: var(--yellow);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 16px;
+  color: #0A0E17;
+  font-family: var(--font-mono);
+}
+.header-title {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--text-primary);
+}
+.header-subtitle {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-left: 12px;
+  padding-left: 12px;
+  border-left: 1px solid var(--text-dim);
+}
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.header-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--green);
+}
+.header-status .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  animation: pulse-dot 2s infinite;
+}
+@keyframes pulse-dot {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(0,185,107,0.5); }
+  50% { box-shadow: 0 0 0 6px rgba(0,185,107,0); }
+}
+.header-time {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  color: var(--yellow);
+  letter-spacing: 1px;
+}
+
+/* ===== 数据概览卡片行 ===== */
+.overview-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  padding: 12px 28px;
+}
+.overview-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
+  padding: 16px 20px;
+  position: relative;
+  overflow: hidden;
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+.overview-card:hover {
+  border-color: var(--border-glow);
+  box-shadow: 0 0 20px rgba(255,195,0,0.08);
+}
+.overview-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  border-radius: 0 2px 2px 0;
+}
+.overview-card.card-yellow::before { background: var(--yellow); }
+.overview-card.card-green::before { background: var(--green); }
+.overview-card.card-red::before { background: var(--red); }
+.overview-card.card-blue::before { background: var(--blue); }
+.overview-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.overview-label .icon {
+  font-size: 14px;
+}
+.overview-value {
+  font-family: var(--font-mono);
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.overview-card.card-yellow .overview-value { color: var(--yellow); }
+.overview-card.card-green .overview-value { color: var(--green); }
+.overview-card.card-red .overview-value { color: var(--red); }
+.overview-card.card-blue .overview-value { color: var(--blue); }
+.overview-trend {
+  font-size: 11px;
+  margin-top: 4px;
+  color: var(--text-secondary);
+}
+.overview-trend.up { color: var(--red); }
+.overview-trend.down { color: var(--green); }
+
+/* ===== 主体区域 ===== */
+.main-area {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 12px;
+  padding: 0 28px 16px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* 左侧列 */
+.left-col {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  gap: 12px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ===== 通用卡片 ===== */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-card);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0;
+  transition: border-color 0.3s;
+}
+.card:hover {
+  border-color: rgba(255,195,0,0.2);
+}
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255,195,0,0.06);
+  flex-shrink: 0;
+}
+.card-header::before {
+  content: '';
+  width: 3px;
+  height: 14px;
+  background: var(--yellow);
+  border-radius: 2px;
+}
+.card-header-title {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  color: var(--text-primary);
+}
+.card-header-badge {
+  margin-left: auto;
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(255,195,0,0.1);
+  color: var(--yellow);
+  font-family: var(--font-mono);
+}
+.card-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  padding: 12px 16px;
+}
+
+/* ===== 统计图表 ===== */
+.chart-area {
+  width: 100%;
+  height: 100%;
+}
+#trendChart {
+  width: 100%;
+  height: 100%;
+}
+
+/* ===== 传感器面板 ===== */
+.sensor-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+  height: 100%;
+}
+.sensor-sub-card {
+  background: rgba(10,14,23,0.6);
+  border: 1px solid rgba(255,195,0,0.06);
+  border-radius: 6px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+}
+.sensor-sub-title {
+  font-size: 11px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+  letter-spacing: 1px;
+}
+.sensor-gyro {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+}
+.gyro-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.gyro-label {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--text-secondary);
+  width: 16px;
+  text-align: right;
+}
+.gyro-bar-bg {
+  flex: 1;
+  height: 8px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+.gyro-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s, background 0.3s;
+  position: absolute;
+  left: 50%;
+}
+.gyro-bar-fill.positive {
+  transform-origin: left;
+  background: var(--yellow);
+}
+.gyro-bar-fill.negative {
+  transform-origin: right;
+  background: var(--yellow);
+}
+.gyro-bar-fill.danger {
+  background: var(--red) !important;
+}
+.gyro-value {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  width: 42px;
+  text-align: right;
+  color: var(--text-primary);
+}
+.gyro-value.danger {
+  color: var(--red);
+  animation: shake 0.3s infinite;
+}
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-2px); }
+  75% { transform: translateX(2px); }
+}
+
+.sensor-gauge-area {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+.gauge-item {
+  text-align: center;
+}
+.gauge-circle {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 4px;
+}
+.gauge-circle svg {
+  position: absolute;
+  inset: 0;
+  transform: rotate(-90deg);
+}
+.gauge-circle circle {
+  fill: none;
+  stroke-width: 4;
+}
+.gauge-circle .bg-ring {
+  stroke: rgba(255,255,255,0.06);
+}
+.gauge-circle .value-ring {
+  stroke: var(--green);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.5s, stroke 0.3s;
+}
+.gauge-circle .value-ring.warn {
+  stroke: var(--orange);
+}
+.gauge-circle .value-ring.danger {
+  stroke: var(--red);
+}
+.gauge-percent {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  z-index: 1;
+}
+.gauge-label {
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.sensor-basket {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+}
+.basket-weight {
+  font-family: var(--font-mono);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.basket-weight.overweight {
+  color: var(--red);
+  animation: shake 0.3s infinite;
+}
+.basket-weight .unit {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  margin-left: 2px;
+}
+.basket-bar-bg {
+  height: 8px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.basket-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  background: var(--green);
+  transition: width 0.5s, background 0.3s;
+}
+.basket-bar-fill.warn {
+  background: var(--orange);
+}
+.basket-bar-fill.danger {
+  background: var(--red);
+}
+.basket-status {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+/* ===== 右侧告警列表 ===== */
+.alert-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+.alert-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0;
+  min-height: 0;
+}
+.alert-list::-webkit-scrollbar {
+  width: 4px;
+}
+.alert-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+.alert-list::-webkit-scrollbar-thumb {
+  background: rgba(255,195,0,0.2);
+  border-radius: 2px;
+}
+.alert-item {
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  animation: alert-enter 0.4s ease-out;
+  transition: background 0.2s;
+  cursor: pointer;
+}
+.alert-item:hover {
+  background: rgba(255,255,255,0.02);
+}
+.alert-item.flash {
+  animation: alert-flash 0.4s ease-out 3;
+}
+@keyframes alert-flash {
+  0% { background: transparent; }
+  50% { background: rgba(255,195,0,0.08); }
+  100% { background: transparent; }
+}
+@keyframes alert-enter {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+.alert-top-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.alert-level {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+.alert-level.p0 { background: rgba(255,77,79,0.2); color: var(--red); }
+.alert-level.p1 { background: rgba(255,195,0,0.15); color: var(--yellow); }
+.alert-level.p2 { background: rgba(255,140,0,0.15); color: var(--orange); }
+.alert-level.p3 { background: rgba(24,144,255,0.15); color: var(--blue); }
+.alert-type {
+  font-size: 12px;
+  font-weight: 600;
+  flex: 1;
+}
+.alert-type.p0 { color: var(--red); }
+.alert-type.p1 { color: var(--yellow); }
+.alert-type.p2 { color: var(--orange); }
+.alert-type.p3 { color: var(--blue); }
+.alert-time {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+.alert-desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  padding-left: 2px;
+}
+.alert-bike-id {
+  color: var(--yellow);
+  font-family: var(--font-mono);
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.alert-bike-id:hover {
+  color: #ffd54f;
+}
+
+/* ===== Toast 通知 ===== */
+.toast-container {
+  position: fixed;
+  top: 64px;
+  right: 28px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  background: linear-gradient(135deg, #1A0A0A, #2A1010);
+  border: 1px solid rgba(255,77,79,0.4);
+  border-left: 3px solid var(--red);
+  border-radius: 6px;
+  padding: 14px 18px;
+  min-width: 300px;
+  max-width: 400px;
+  animation: toast-in 0.4s ease-out;
+  pointer-events: auto;
+  box-shadow: 0 4px 24px rgba(255,77,79,0.15);
+}
+.toast.hiding {
+  animation: toast-out 0.3s ease-in forwards;
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(60px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes toast-out {
+  from { opacity: 1; transform: translateX(0); }
+  to { opacity: 0; transform: translateX(60px); }
+}
+.toast-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.toast-icon {
+  font-size: 16px;
+}
+.toast-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--red);
+  flex: 1;
+}
+.toast-close {
+  cursor: pointer;
+  color: var(--text-secondary);
+  font-size: 16px;
+  background: none;
+  border: none;
+  padding: 0 2px;
+  line-height: 1;
+}
+.toast-close:hover {
+  color: var(--text-primary);
+}
+.toast-body {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* ===== 车辆信息标签 ===== */
+.sensor-bike-info {
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.bike-id-tag {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--yellow);
+  background: rgba(255,195,0,0.08);
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+.bike-status-tag {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-weight: 600;
+}
+.bike-status-tag.alert {
+  background: rgba(255,77,79,0.15);
+  color: var(--red);
+}
+.bike-status-tag.normal {
+  background: rgba(0,185,107,0.15);
+  color: var(--green);
+}
+
+/* ===== 顶部车祸全局警告条 ===== */
+.global-alert-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--red);
+  z-index: 10000;
+  animation: bar-flash 0.5s ease-in-out 6;
+  opacity: 0;
+  pointer-events: none;
+}
+.global-alert-bar.active {
+  opacity: 1;
+}
+@keyframes bar-flash {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+</style>
+</head>
+<body>
+
+<!-- 车祸全局红色警告条 -->
+<div class="global-alert-bar" id="globalAlertBar"></div>
+
+<!-- Toast 通知容器 -->
+<div class="toast-container" id="toastContainer"></div>
+
+<div id="app">
+  <!-- ===== 顶部标题栏 ===== -->
+  <header class="header">
+    <div class="header-left">
+      <div class="header-logo">M</div>
+      <span class="header-title">骑行安全智能监测云平台</span>
+      <span class="header-subtitle">美团单车 · 智慧出行</span>
+    </div>
+    <div class="header-right">
+      <div class="header-status">
+        <span class="dot"></span>
+        系统运行中
+      </div>
+      <div class="header-time" id="headerTime">--:--:--</div>
+    </div>
+  </header>
+
+  <!-- ===== 数据概览卡片 ===== -->
+  <div class="overview-row">
+    <div class="overview-card card-green">
+      <div class="overview-label"><span class="icon">&#128664;</span> 今日活跃车辆</div>
+      <div class="overview-value" id="ovBikes">0</div>
+      <div class="overview-trend" id="ovBikesTrend">--</div>
+    </div>
+    <div class="overview-card card-yellow">
+      <div class="overview-label"><span class="icon">&#9888;</span> 累计预警次数</div>
+      <div class="overview-value" id="ovAlerts">0</div>
+      <div class="overview-trend" id="ovAlertsTrend">--</div>
+    </div>
+    <div class="overview-card card-red">
+      <div class="overview-label"><span class="icon">&#128680;</span> 当前严重事故</div>
+      <div class="overview-value" id="ovCrash">0</div>
+      <div class="overview-trend" id="ovCrashTrend">--</div>
+    </div>
+    <div class="overview-card card-blue">
+      <div class="overview-label"><span class="icon">&#128737;</span> 今日安全评分</div>
+      <div class="overview-value" id="ovScore">0</div>
+      <div class="overview-trend" id="ovScoreTrend">--</div>
+    </div>
+  </div>
+
+  <!-- ===== 主体区域 ===== -->
+  <div class="main-area">
+    <!-- 左侧 -->
+    <div class="left-col">
+      <!-- 统计图表 -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-header-title">违规行为趋势分析</span>
+          <span class="card-header-badge">近7天</span>
+        </div>
+        <div class="card-body">
+          <div class="chart-area">
+            <div id="trendChart"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 传感器面板 -->
+      <div class="card">
+        <div class="card-header">
+          <span class="card-header-title">单车实时状态面板</span>
+          <span class="card-header-badge" id="sensorBikeId">车辆 #--</span>
+        </div>
+        <div class="card-body">
+          <div class="sensor-bike-info">
+            <span class="bike-id-tag" id="sensorBikeTag">#--</span>
+            <span class="bike-status-tag alert" id="sensorBikeStatus">预警中</span>
+            <span style="font-size:11px;color:var(--text-secondary);margin-left:auto;">点击右侧告警车辆ID可切换</span>
+          </div>
+          <div class="sensor-panel">
+            <!-- 陀螺仪 -->
+            <div class="sensor-sub-card">
+              <div class="sensor-sub-title">陀螺仪姿态</div>
+              <div class="sensor-gyro">
+                <div class="gyro-row">
+                  <span class="gyro-label">X</span>
+                  <div class="gyro-bar-bg"><div class="gyro-bar-fill" id="gyroXBar"></div></div>
+                  <span class="gyro-value" id="gyroXVal">0.0°</span>
+                </div>
+                <div class="gyro-row">
+                  <span class="gyro-label">Y</span>
+                  <div class="gyro-bar-bg"><div class="gyro-bar-fill" id="gyroYBar"></div></div>
+                  <span class="gyro-value" id="gyroYVal">0.0°</span>
+                </div>
+                <div class="gyro-row">
+                  <span class="gyro-label">Z</span>
+                  <div class="gyro-bar-bg"><div class="gyro-bar-fill" id="gyroZBar"></div></div>
+                  <span class="gyro-value" id="gyroZVal">0.0°</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 握把压力 -->
+            <div class="sensor-sub-card">
+              <div class="sensor-sub-title">握把压力</div>
+              <div class="sensor-gauge-area">
+                <div class="gauge-item">
+                  <div class="gauge-circle">
+                    <svg viewBox="0 0 60 60">
+                      <circle class="bg-ring" cx="30" cy="30" r="26"></circle>
+                      <circle class="value-ring" id="gaugeLRing" cx="30" cy="30" r="26"
+                        stroke-dasharray="163.36" stroke-dashoffset="163.36"></circle>
+                    </svg>
+                    <span class="gauge-percent" id="gaugeLVal">0%</span>
+                  </div>
+                  <div class="gauge-label">左握把</div>
+                </div>
+                <div class="gauge-item">
+                  <div class="gauge-circle">
+                    <svg viewBox="0 0 60 60">
+                      <circle class="bg-ring" cx="30" cy="30" r="26"></circle>
+                      <circle class="value-ring" id="gaugeRRing" cx="30" cy="30" r="26"
+                        stroke-dasharray="163.36" stroke-dashoffset="163.36"></circle>
+                    </svg>
+                    <span class="gauge-percent" id="gaugeRVal">0%</span>
+                  </div>
+                  <div class="gauge-label">右握把</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 车筐载重 -->
+            <div class="sensor-sub-card">
+              <div class="sensor-sub-title">车筐载重</div>
+              <div class="sensor-basket">
+                <div class="basket-weight" id="basketWeight">0.0<span class="unit">kg</span></div>
+                <div class="basket-bar-bg">
+                  <div class="basket-bar-fill" id="basketBar" style="width:0%"></div>
+                </div>
+                <div class="basket-status" id="basketStatus">正常</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右侧告警列表 -->
+    <div class="card alert-panel">
+      <div class="card-header">
+        <span class="card-header-title">实时异常行为监控</span>
+        <span class="card-header-badge" id="alertCount">0 条</span>
+      </div>
+      <div class="card-body" style="padding:0;overflow:hidden;">
+        <div class="alert-list" id="alertList">
+          <!-- 告警项动态插入 -->
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// 骑行安全智能监测云平台 · 模拟数据引擎
+// ============================================================
+
+// ----- 工具函数 -----
+function rand(min, max) { return Math.random() * (max - min) + min; }
+function randInt(min, max) { return Math.floor(rand(min, max + 1)); }
+function pick(arr) { return arr[randInt(0, arr.length - 1)]; }
+function pad2(n) { return String(n).padStart(2, '0'); }
+function formatTime(d) {
+  return `${d.getFullYear()}-${pad2(d.getMonth()+1)}-${pad2(d.getDate())} ${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+}
+function formatTimeShort(d) {
+  return `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
+}
+
+// ----- 单车池 -----
+const BIKE_COUNT = 50;
+const bikePool = [];
+for (let i = 0; i < BIKE_COUNT; i++) {
+  bikePool.push({
+    id: `#${randInt(1000, 9999)}`,
+    online: Math.random() > 0.15,
+    // 传感器数据
+    gyro: { x: 0, y: 0, z: 0 },
+    pressure: { left: rand(40, 80), right: rand(40, 80) },
+    basket: rand(0, 3),
+    // 状态
+    alerting: false,
+    alertType: null
+  });
+}
+
+function getOnlineBikes() {
+  return bikePool.filter(b => b.online);
+}
+
+// ----- 选中车辆 -----
+let selectedBike = bikePool[0];
+
+function selectBike(bikeId) {
+  const bike = bikePool.find(b => b.id === bikeId);
+  if (bike) {
+    selectedBike = bike;
+    updateSensorPanel();
+  }
+}
+
+// ----- 告警生成 -----
+const ALERT_CONFIGS = [
+  {
+    level: 'P0', type: '车祸报警', priority: 0,
+    className: 'p0',
+    descs: [
+      '陀螺仪检测到剧烈碰撞/倾倒，车身倾斜角超过阈值',
+      '检测到车辆非正常倾倒，疑似发生交通事故',
+      '陀螺仪数值突变，判定为严重撞击事件'
+    ],
+    weight: 5
+  },
+  {
+    level: 'P1', type: '危险骑行', priority: 1,
+    className: 'p1',
+    descs: [
+      '压力传感器异常：单手/脱把骑行，左右握把压力严重不均',
+      '检测到一侧握把压力趋近于零，疑似脱把骑行',
+      '握把压力分布异常，判定为危险骑行行为'
+    ],
+    weight: 25
+  },
+  {
+    level: 'P2', type: '违规载人', priority: 2,
+    className: 'p2',
+    descs: [
+      '超声波+人体感应双触发：车筐超重/违规载人',
+      '车筐载重异常且检测到人体红外，疑似违规载人',
+      '重力传感器超阈值 + 人体感应触发，判定违规载人'
+    ],
+    weight: 30
+  },
+  {
+    level: 'P3', type: '遗留物品', priority: 3,
+    className: 'p3',
+    descs: [
+      '骑行结束后车筐有物品遗失，超声波持续检测到载重',
+      '车辆已静止但车筐仍有物体，疑似物品遗留',
+      '车主已离开，车筐超声波检测到残留物品'
+    ],
+    weight: 40
+  }
+];
+
+function weightedRandom(configs) {
+  const totalWeight = configs.reduce((s, c) => s + c.weight, 0);
+  let r = Math.random() * totalWeight;
+  for (const c of configs) {
+    r -= c.weight;
+    if (r <= 0) return c;
+  }
+  return configs[configs.length - 1];
+}
+
+const alerts = [];
+let totalAlerts = 0;
+let crashCount = 0;
+
+function generateAlert() {
+  const config = weightedRandom(ALERT_CONFIGS);
+  const bike = pick(getOnlineBikes());
+  const desc = pick(config.descs);
+  const now = new Date();
+
+  const alert = {
+    id: Date.now() + Math.random(),
+    level: config.level,
+    type: config.type,
+    className: config.className,
+    priority: config.priority,
+    bikeId: bike.id,
+    bike: bike,
+    desc: desc.replace('{bikeId}', bike.id),
+    time: now,
+    timeStr: formatTimeShort(now)
+  };
+
+  // 更新单车状态
+  bike.alerting = true;
+  bike.alertType = config.type;
+
+  // 根据告警类型修改传感器数据
+  if (config.priority === 0) {
+    // 车祸：陀螺仪突变
+    bike.gyro.x = rand(70, 110) * (Math.random() > 0.5 ? 1 : -1);
+    bike.gyro.y = rand(50, 90) * (Math.random() > 0.5 ? 1 : -1);
+    bike.gyro.z = rand(30, 70) * (Math.random() > 0.5 ? 1 : -1);
+  } else if (config.priority === 1) {
+    // 单手：一侧压力趋零
+    if (Math.random() > 0.5) {
+      bike.pressure.left = rand(0, 5);
+      bike.pressure.right = rand(50, 90);
+    } else {
+      bike.pressure.left = rand(50, 90);
+      bike.pressure.right = rand(0, 5);
+    }
+  } else if (config.priority === 2) {
+    // 载人：车筐超重
+    bike.basket = rand(12, 25);
+  }
+
+  alerts.unshift(alert);
+  totalAlerts++;
+
+  if (config.priority === 0) {
+    crashCount++;
+    showToast(alert);
+    showGlobalAlertBar();
+  }
+
+  // 最多保留 50 条
+  if (alerts.length > 50) alerts.pop();
+
+  renderAlertList();
+  updateOverview();
+}
+
+// ----- 告警列表渲染 -----
+function renderAlertList() {
+  const list = document.getElementById('alertList');
+  const existingItems = list.querySelectorAll('.alert-item');
+  const existingIds = new Set();
+  existingItems.forEach(el => existingIds.add(el.dataset.alertId));
+
+  // 全量重新渲染（简化逻辑）
+  list.innerHTML = '';
+  alerts.forEach((a, i) => {
+    const item = document.createElement('div');
+    item.className = 'alert-item' + (i === 0 && !existingIds.has(String(a.id)) ? ' flash' : '');
+    item.dataset.alertId = a.id;
+    item.innerHTML = `
+      <div class="alert-top-row">
+        <span class="alert-level ${a.className}">${a.level}</span>
+        <span class="alert-type ${a.className}">${a.type}</span>
+        <span class="alert-time">${a.timeStr}</span>
+      </div>
+      <div class="alert-desc">${a.desc}，车辆 <span class="alert-bike-id" data-bike="${a.bikeId}">${a.bikeId}</span></div>
+    `;
+    list.appendChild(item);
+  });
+
+  // 点击车辆ID切换传感器面板
+  list.querySelectorAll('.alert-bike-id').forEach(el => {
+    el.addEventListener('click', (e) => {
+      e.stopPropagation();
+      selectBike(el.dataset.bike);
+    });
+  });
+
+  document.getElementById('alertCount').textContent = `${alerts.length} 条`;
+}
+
+// ----- Toast 通知 -----
+function showToast(alert) {
+  const container = document.getElementById('toastContainer');
+  const toast = document.createElement('div');
+  toast.className = 'toast';
+  toast.innerHTML = `
+    <div class="toast-header">
+      <span class="toast-icon">&#128680;</span>
+      <span class="toast-title">紧急：车祸报警</span>
+      <button class="toast-close" onclick="this.closest('.toast').classList.add('hiding');setTimeout(()=>this.closest('.toast').remove(),300)">&times;</button>
+    </div>
+    <div class="toast-body">${alert.desc}，车辆 <strong>${alert.bikeId}</strong><br><span style="color:var(--red);font-size:11px;">请立即处理！</span></div>
+  `;
+  container.appendChild(toast);
+
+  // 5 秒后自动消失
+  setTimeout(() => {
+    if (toast.parentNode) {
+      toast.classList.add('hiding');
+      setTimeout(() => toast.remove(), 300);
+    }
+  }, 5000);
+}
+
+// ----- 全局红色警告条 -----
+function showGlobalAlertBar() {
+  const bar = document.getElementById('globalAlertBar');
+  bar.classList.add('active');
+  setTimeout(() => bar.classList.remove('active'), 3000);
+}
+
+// ----- 概览卡片更新 -----
+let ovBikesBase = randInt(1200, 1500);
+let ovScoreBase = rand(88, 97);
+
+function updateOverview() {
+  // 活跃车辆
+  ovBikesBase += randInt(-3, 5);
+  ovBikesBase = Math.max(1000, Math.min(1800, ovBikesBase));
+  animateNumber('ovBikes', ovBikesBase);
+  document.getElementById('ovBikesTrend').innerHTML = `<span class="${rand(0,1)>0.5?'up':'down'}">较昨日 ${rand(0,1)>0.5?'+':'-'}${rand(1,5).toFixed(1)}%</span>`;
+
+  // 累计预警
+  animateNumber('ovAlerts', totalAlerts);
+  document.getElementById('ovAlertsTrend').innerHTML = `<span class="up">较昨日 +${randInt(3,15)}</span>`;
+
+  // 严重事故
+  animateNumber('ovCrash', crashCount);
+  document.getElementById('ovCrashTrend').innerHTML = crashCount > 0
+    ? `<span class="up">需立即处理 ${crashCount} 起</span>`
+    : `<span class="down">暂无严重事故</span>`;
+
+  // 安全评分
+  if (crashCount > 0) ovScoreBase = Math.max(60, ovScoreBase - rand(1, 3));
+  else ovScoreBase = Math.min(99, ovScoreBase + rand(0.1, 0.5));
+  const scoreColor = ovScoreBase >= 90 ? 'var(--green)' : ovScoreBase >= 75 ? 'var(--yellow)' : 'var(--red)';
+  document.getElementById('ovScore').style.color = scoreColor;
+  animateNumber('ovScore', Math.round(ovScoreBase));
+  document.getElementById('ovScoreTrend').innerHTML = `<span class="${ovScoreBase>=85?'down':'up'}">较昨日 ${ovScoreBase>=85?'+':'-'}${rand(0.5,3).toFixed(1)}%</span>`;
+}
+
+// 数字滚动动画
+function animateNumber(elementId, target) {
+  const el = document.getElementById(elementId);
+  const current = parseInt(el.textContent) || 0;
+  const diff = target - current;
+  const steps = 20;
+  const stepVal = diff / steps;
+  let step = 0;
+
+  function tick() {
+    step++;
+    if (step >= steps) {
+      el.textContent = target;
+      return;
+    }
+    el.textContent = Math.round(current + stepVal * step);
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+// ----- 传感器面板更新 -----
+function updateSensorPanel() {
+  const bike = selectedBike;
+
+  // 如果车辆不在告警状态，模拟正常数据
+  if (!bike.alerting) {
+    bike.gyro.x += rand(-2, 2);
+    bike.gyro.y += rand(-2, 2);
+    bike.gyro.z += rand(-1, 1);
+    bike.gyro.x = Math.max(-15, Math.min(15, bike.gyro.x));
+    bike.gyro.y = Math.max(-15, Math.min(15, bike.gyro.y));
+    bike.gyro.z = Math.max(-5, Math.min(5, bike.gyro.z));
+    bike.pressure.left += rand(-3, 3);
+    bike.pressure.right += rand(-3, 3);
+    bike.pressure.left = Math.max(20, Math.min(95, bike.pressure.left));
+    bike.pressure.right = Math.max(20, Math.min(95, bike.pressure.right));
+    bike.basket += rand(-0.3, 0.3);
+    bike.basket = Math.max(0, Math.min(5, bike.basket));
+  } else {
+    // 告警状态下数据趋于正常化（模拟恢复）
+    bike.gyro.x *= 0.95;
+    bike.gyro.y *= 0.95;
+    bike.gyro.z *= 0.95;
+    if (Math.abs(bike.gyro.x) < 15 && Math.abs(bike.gyro.y) < 15) {
+      bike.alerting = false;
+      bike.alertType = null;
+    }
+  }
+
+  // 车辆信息
+  document.getElementById('sensorBikeId').textContent = `车辆 ${bike.id}`;
+  document.getElementById('sensorBikeTag').textContent = bike.id;
+  const statusEl = document.getElementById('sensorBikeStatus');
+  if (bike.alerting) {
+    statusEl.textContent = bike.alertType || '预警中';
+    statusEl.className = 'bike-status-tag alert';
+  } else {
+    statusEl.textContent = '运行正常';
+    statusEl.className = 'bike-status-tag normal';
+  }
+
+  // 陀螺仪
+  const axes = ['X', 'Y', 'Z'];
+  const gyroVals = [bike.gyro.x, bike.gyro.y, bike.gyro.z];
+  axes.forEach((axis, i) => {
+    const val = gyroVals[i];
+    const absVal = Math.abs(val);
+    const isDanger = absVal > 80;
+    const barEl = document.getElementById(`gyro${axis}Bar`);
+    const valEl = document.getElementById(`gyro${axis}Val`);
+
+    // 条形图：-90~90 映射到 0~50% 宽度，从中间开始
+    const pct = Math.min(50, (absVal / 90) * 50);
+    barEl.style.width = pct + '%';
+    if (val >= 0) {
+      barEl.style.left = '50%';
+      barEl.className = 'gyro-bar-fill positive' + (isDanger ? ' danger' : '');
+    } else {
+      barEl.style.left = (50 - pct) + '%';
+      barEl.className = 'gyro-bar-fill negative' + (isDanger ? ' danger' : '');
+    }
+
+    valEl.textContent = val.toFixed(1) + '°';
+    valEl.className = 'gyro-value' + (isDanger ? ' danger' : '');
+  });
+
+  // 握把压力 - 圆环
+  const circumference = 163.36; // 2 * PI * 26
+  [['L', bike.pressure.left], ['R', bike.pressure.right]].forEach(([side, val]) => {
+    const pct = Math.max(0, Math.min(100, val));
+    const offset = circumference - (pct / 100) * circumference;
+    const ring = document.getElementById(`gauge${side}Ring`);
+    const valEl = document.getElementById(`gauge${side}Val`);
+    ring.style.strokeDashoffset = offset;
+    ring.className = 'value-ring' + (pct < 10 ? ' danger' : pct < 30 ? ' warn' : '');
+    valEl.textContent = Math.round(pct) + '%';
+    valEl.style.color = pct < 10 ? 'var(--red)' : pct < 30 ? 'var(--orange)' : 'var(--green)';
+  });
+
+  // 车筐载重
+  const weight = Math.max(0, bike.basket);
+  const weightEl = document.getElementById('basketWeight');
+  const isOverweight = weight > 10;
+  weightEl.innerHTML = weight.toFixed(1) + '<span class="unit">kg</span>';
+  weightEl.className = 'basket-weight' + (isOverweight ? ' overweight' : '');
+
+  const barPct = Math.min(100, (weight / 20) * 100);
+  const barEl = document.getElementById('basketBar');
+  barEl.style.width = barPct + '%';
+  barEl.className = 'basket-bar-fill' + (weight > 10 ? ' danger' : weight > 5 ? ' warn' : '');
+
+  const statusEl2 = document.getElementById('basketStatus');
+  statusEl2.textContent = isOverweight ? '超重！疑似违规载人' : weight > 5 ? '载重偏高' : '正常';
+  statusEl2.style.color = isOverweight ? 'var(--red)' : weight > 5 ? 'var(--orange)' : 'var(--text-secondary)';
+}
+
+// ----- 时间显示 -----
+function updateClock() {
+  document.getElementById('headerTime').textContent = formatTime(new Date());
+}
+
+// ----- ECharts 图表 -----
+let trendChart = null;
+const chartDays = [];
+const chartData = { crash: [], oneHand: [], overload: [], leftover: [] };
+
+function initChartData() {
+  const now = new Date();
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    chartDays.push(`${pad2(d.getMonth()+1)}/${pad2(d.getDate())}`);
+    chartData.crash.push(randInt(1, 5));
+    chartData.oneHand.push(randInt(8, 25));
+    chartData.overload.push(randInt(10, 30));
+    chartData.leftover.push(randInt(15, 40));
+  }
+}
+
+function initTrendChart() {
+  const dom = document.getElementById('trendChart');
+  trendChart = echarts.init(dom, null, { renderer: 'canvas' });
+
+  const option = {
+    backgroundColor: 'transparent',
+    tooltip: {
+      trigger: 'axis',
+      backgroundColor: 'rgba(20,26,46,0.95)',
+      borderColor: 'rgba(255,195,0,0.2)',
+      textStyle: { color: '#E8E8E8', fontSize: 12 },
+      axisPointer: { lineStyle: { color: 'rgba(255,195,0,0.2)' } }
+    },
+    legend: {
+      data: ['车祸/摔倒', '单手骑行', '违规载人', '遗留物品'],
+      top: 4,
+      right: 10,
+      textStyle: { color: '#8C8C8C', fontSize: 11 },
+      itemWidth: 12,
+      itemHeight: 8,
+      itemGap: 16
+    },
+    grid: {
+      left: 40,
+      right: 20,
+      top: 40,
+      bottom: 28
+    },
+    xAxis: {
+      type: 'category',
+      data: chartDays,
+      axisLine: { lineStyle: { color: 'rgba(255,195,0,0.1)' } },
+      axisTick: { show: false },
+      axisLabel: { color: '#8C8C8C', fontSize: 11 }
+    },
+    yAxis: {
+      type: 'value',
+      splitLine: { lineStyle: { color: 'rgba(255,255,255,0.04)' } },
+      axisLine: { show: false },
+      axisTick: { show: false },
+      axisLabel: { color: '#8C8C8C', fontSize: 11 }
+    },
+    series: [
+      {
+        name: '车祸/摔倒',
+        type: 'bar',
+        data: chartData.crash,
+        barWidth: 12,
+        itemStyle: { color: '#FF4D4F', borderRadius: [2, 2, 0, 0] }
+      },
+      {
+        name: '单手骑行',
+        type: 'bar',
+        data: chartData.oneHand,
+        barWidth: 12,
+        itemStyle: { color: '#FFC300', borderRadius: [2, 2, 0, 0] }
+      },
+      {
+        name: '违规载人',
+        type: 'line',
+        data: chartData.overload,
+        smooth: true,
+        symbol: 'circle',
+        symbolSize: 6,
+        lineStyle: { color: '#FF8C00', width: 2 },
+        itemStyle: { color: '#FF8C00' },
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: 'rgba(255,140,0,0.15)' },
+            { offset: 1, color: 'rgba(255,140,0,0)' }
+          ])
+        }
+      },
+      {
+        name: '遗留物品',
+        type: 'line',
+        data: chartData.leftover,
+        smooth: true,
+        symbol: 'circle',
+        symbolSize: 6,
+        lineStyle: { color: '#1890FF', width: 2 },
+        itemStyle: { color: '#1890FF' },
+        areaStyle: {
+          color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+            { offset: 0, color: 'rgba(24,144,255,0.12)' },
+            { offset: 1, color: 'rgba(24,144,255,0)' }
+          ])
+        }
+      }
+    ]
+  };
+
+  trendChart.setOption(option);
+}
+
+// 图表微调（每 60 秒）
+function nudgeChart() {
+  chartData.crash.shift(); chartData.crash.push(randInt(1, 5));
+  chartData.oneHand.shift(); chartData.oneHand.push(randInt(8, 25));
+  chartData.overload.shift(); chartData.overload.push(randInt(10, 30));
+  chartData.leftover.shift(); chartData.leftover.push(randInt(15, 40));
+  chartDays.shift();
+  const d = new Date();
+  chartDays.push(`${pad2(d.getMonth()+1)}/${pad2(d.getDate())}`);
+  trendChart.setOption({
+    xAxis: { data: chartDays },
+    series: [
+      { data: chartData.crash },
+      { data: chartData.oneHand },
+      { data: chartData.overload },
+      { data: chartData.leftover }
+    ]
+  });
+}
+
+// ----- 窗口自适应 -----
+function handleResize() {
+  if (trendChart) trendChart.resize();
+}
+window.addEventListener('resize', handleResize);
+
+// ============================================================
+// 启动
+// ============================================================
+function init() {
+  // 时钟
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  // 初始化图表数据
+  initChartData();
+
+  // 初始化概览
+  updateOverview();
+
+  // 传感器面板
+  updateSensorPanel();
+  setInterval(updateSensorPanel, 1000);
+
+  // 告警生成（3~8 秒随机间隔）
+  function scheduleAlert() {
+    const delay = randInt(3000, 8000);
+    setTimeout(() => {
+      generateAlert();
+      scheduleAlert();
+    }, delay);
+  }
+  // 初始生成几条
+  for (let i = 0; i < 5; i++) generateAlert();
+  scheduleAlert();
+
+  // ECharts 初始化（等 DOM ready）
+  setTimeout(() => {
+    initTrendChart();
+    // 图表微调
+    setInterval(nudgeChart, 60000);
+  }, 100);
+
+  // 概览卡片定期刷新
+  setInterval(updateOverview, 30000);
+}
+
+// 页面加载完成后启动
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
+</script>
+</body>
+</html>
